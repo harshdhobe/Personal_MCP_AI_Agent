@@ -1,0 +1,27 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+
+# OAuth / credentials
+credentials.json
+token.json
+*.pem
+
+# Logs and OS
+logs/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build / coverage
+dist/
+coverage/
+.nyc_output/
