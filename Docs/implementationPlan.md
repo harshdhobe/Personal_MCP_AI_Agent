@@ -1,5 +1,24 @@
 # Personal AI Gmail Assistant — Implementation Plan
 
+## Current status (May 2026)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 0 Scaffolding | ✅ Complete | Express, env, health |
+| 1 Gmail OAuth + MCP | ✅ Complete | In-process Gmail on WSL/Render |
+| 2T Telegram | ✅ Complete | Poll + webhook + Render prod |
+| 2 WhatsApp | ⏸ Skipped | Stub at `/webhook` |
+| 3 Gemini agent | ✅ Complete | Replaced OpenAI plan |
+| 4 Confirmation | 🟡 Code done | E2E QA pending |
+| 5 MVP features | 🟡 Partial | Read/search/draft work |
+| 6 Security | 🟡 Partial | Allowlist, secrets hygiene |
+| 7 Testing | 🟡 Partial | Manual smoke only |
+| 8 Deployment | ✅ Complete | Render free + Telegram webhook |
+
+**Study guide:** [full-flow-explanation.md](./full-flow-explanation.md)
+
+---
+
 ## 1. Purpose
 
 This document is the **step-by-step build guide** for the MVP. It turns the product intent in [`problem_statement_doc_809303f3.plan.md`](./problem_statement_doc_809303f3.plan.md) and the technical design in [`architecture.md`](./architecture.md) into ordered phases, tasks, acceptance criteria, and verification steps.
@@ -43,7 +62,7 @@ gantt
 | 1 | Gmail OAuth + MCP server | 2–3 days |
 | 2T | Telegram webhook/poll + send + echo | 0.5–1 day |
 | 2 | WhatsApp webhook + send | 2–3 days |
-| 3 | OpenAI agent + tool bridge | 3–4 days |
+| 3 | Gemini agent + tool bridge | 3–4 days |
 | 4 | Send confirmation flow | 1–2 days |
 | 5 | All five MVP features | 3–4 days |
 | 6 | Security and reliability | 1–2 days |
@@ -64,8 +83,8 @@ Complete these **before Phase 1** code that calls external APIs.
 | **Telegram** | Create bot via @BotFather, get bot token | [t.me/BotFather](https://t.me/BotFather) — if using Telegram |
 | **Google Cloud** | Create project, enable Gmail API | [console.cloud.google.com](https://console.cloud.google.com/) |
 | **Google OAuth** | OAuth consent screen (External/Testing), create Web client | Add redirect URI for local + prod |
-| **OpenAI** | API key with billing | Model: `gpt-4o-mini` |
-| **Hosting / tunnel** | ngrok (dev) or PaaS (prod) | Public HTTPS URL for webhook |
+| **OpenAI / Gemini** | API key | Model: `gemini-2.5-flash-lite` (implemented with Gemini) |
+| **Hosting / tunnel** | ngrok (dev) or **Render** (prod) | Public HTTPS URL for webhook |
 
 ### 3.2 Local development tools
 
@@ -217,7 +236,7 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<host>/telegram
 - [x] Non-allowlisted chat ignored (logged, no Gmail/LLM)
 - [x] Duplicate `message_id` not double-replied (5 min dedupe)
 - [x] `GET /health` lists `telegram` in `channels` when enabled
-- [ ] Phase 3: replace echo with agent + Gmail MCP replies
+- [x] Phase 3: replace echo with agent + Gmail MCP replies
 
 ---
 
@@ -471,23 +490,23 @@ Execute in order; record pass/fail and latency.
 Use this as a single tracking list (copy to issue tracker if desired).
 
 ### Foundation
-- [ ] P0-1 … P0-9 Phase 0 complete
+- [x] P0-1 … P0-9 Phase 0 complete
 
 ### Gmail + MCP
-- [ ] P1-1 … P1-7 Phase 1 complete
+- [x] P1-1 … P1-7 Phase 1 complete
 
 ### Telegram
 - [x] P2T-1 … P2T-8 Phase 2T complete (code)
-- [ ] P2T-1 … P2T-3 your BotFather + chat id in `.env`
+- [x] P2T-1 … P2T-3 BotFather + chat id in `.env`
 
 ### WhatsApp
-- [ ] P2-1 … P2-9 Phase 2 complete
+- [ ] P2-1 … P2-9 Phase 2 complete (skipped for MVP)
 
 ### Agent
-- [ ] P3-1 … P3-9 Phase 3 complete
+- [x] P3-1 … P3-9 Phase 3 complete (Gemini)
 
 ### Confirmation
-- [ ] P4-1 … P4-7 Phase 4 complete
+- [x] P4-1 … P4-7 Phase 4 complete (code; E2E QA open)
 
 ### Features
 - [ ] P5-1 … P5-6 Phase 5 complete
@@ -499,12 +518,14 @@ Use this as a single tracking list (copy to issue tracker if desired).
 - [ ] T1 … T10 Phase 7 complete
 
 ### Deploy
-- [ ] P8-1 … P8-8 Phase 8 complete
+- [x] P8-1 … P8-8 Phase 8 complete (Render + webhook)
 
-### Documentation (parallel)
-- [ ] `Docs/problemStatement.md` (10 sections per plan)
-- [ ] `README.md` setup and example commands
-- [ ] Update this plan if scope changes
+### Documentation
+- [x] `Docs/problem_statement.md`
+- [x] `README.md` setup and example commands
+- [x] `Docs/full-flow-explanation.md` (interview guide)
+- [x] `Docs/RENDER_DEPLOY.md`
+- [x] Update this plan for Gemini + Render
 
 ---
 

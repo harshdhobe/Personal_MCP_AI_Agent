@@ -8,6 +8,13 @@ export const READ_GMAIL_TOOLS = new Set([
   "summarize_inbox",
 ]);
 
+/** Tools that can skip a 2nd Gemini call when AGENT_FAST_REPLY=1 */
+export const FAST_REPLY_TOOLS = new Set([
+  ...READ_GMAIL_TOOLS,
+  "create_draft",
+  "get_email",
+]);
+
 /**
  * @param {string | undefined} value
  */

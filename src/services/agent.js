@@ -10,27 +10,29 @@ import {
 import {
   formatGeminiErrorForUser,
   getGeminiRetryDelayMs,
+  isGeminiDailyQuotaExceeded,
   isGeminiOverloadError,
   isGeminiQuotaZeroError,
-  isGeminiRateLimitError,
+  isGeminiTransientRateLimit,
   shouldTryNextGeminiModel,
   sleep,
 } from "../integrations/geminiErrors.js";
 import { invokeGmailTool, warmupGmailMcp } from "../integrations/mcpPool.js";
 import { extractGeminiReplyText } from "../integrations/geminiResponse.js";
 import {
+  formatDraftCreatedForChat,
   formatGmailToolResultForChat,
   formatSendConfirmation,
 } from "./formatter.js";
 import { getSessionManager } from "./sessionManager.js";
 import {
   applyGmailListDefaults,
-  READ_GMAIL_TOOLS,
+  FAST_REPLY_TOOLS,
   slimGmailPayloadForModel,
 } from "../utils/gmailPerf.js";
 
 const MAX_ITERATIONS = 8;
-const MAX_GEMINI_SEND_RETRIES = 3;
+const MAX_GEMINI_SEND_RETRIES = 2;
 const MAX_RATE_LIMIT_WAIT_MS = 12_000;
 
 const SEND_TOOL = "send_email";
@@ -46,9 +48,11 @@ async function sendChatMessageWithRetry(chat, message) {
       return await chat.sendMessage(message);
     } catch (err) {
       lastErr = err;
+      if (isGeminiDailyQuotaExceeded(err)) {
+        throw err;
+      }
       if (
-        (isGeminiRateLimitError(err) || isGeminiOverloadError(err)) &&
-        !isGeminiQuotaZeroError(err) &&
+        (isGeminiTransientRateLimit(err) || isGeminiOverloadError(err)) &&
         attempt < MAX_GEMINI_SEND_RETRIES - 1
       ) {
         const delay = isGeminiOverloadError(err)
@@ -145,7 +149,7 @@ async function runAgentWithModel(config, modelName, sessionId, userText) {
         } catch (err) {
           toolPayload = { error: true, message: err?.message ?? String(err) };
         }
-        return { name, toolPayload };
+        return { name, args: call.args ?? {}, toolPayload };
       })
     );
 
@@ -169,11 +173,15 @@ async function runAgentWithModel(config, modelName, sessionId, userText) {
       perf.agentFastReply &&
       readCalls.length === 1 &&
       lastToolName &&
-      READ_GMAIL_TOOLS.has(lastToolName) &&
+      FAST_REPLY_TOOLS.has(lastToolName) &&
       lastToolPayload &&
       !lastToolPayload.error
     ) {
-      const reply = formatGmailToolResultForChat(lastToolName, lastToolPayload);
+      const callArgs = settled[0]?.args ?? {};
+      const reply =
+        lastToolName === "create_draft"
+          ? formatDraftCreatedForChat(callArgs, lastToolPayload)
+          : formatGmailToolResultForChat(lastToolName, lastToolPayload);
       const durationMs = Date.now() - started;
       console.log(
         `[agent] session=${sessionId} model=${modelName} iterations=${iterations} durationMs=${durationMs} fast_reply=${lastToolName}`

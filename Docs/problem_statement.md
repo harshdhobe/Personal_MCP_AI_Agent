@@ -63,7 +63,7 @@ sequenceDiagram
 
 - **Runtime:** Node.js 20+ and Express  
 - **Chat ingress:** Meta WhatsApp Cloud API (`/webhook`) and/or Telegram Bot API (`/telegram/webhook` or long polling)  
-- **Intelligence:** OpenAI `gpt-4o-mini` with tool calling (Phase 3+)  
+- **Intelligence:** Google **Gemini** (`gemini-2.5-flash-lite`) with function calling (Phase 3 — implemented)
 - **Email:** Gmail API via bundled **MCP** server (`mcp-gmail/`) and OAuth 2.0 refresh token  
 - **Security:** Channel allowlists (`WHATSAPP_ALLOWED_WA_ID`, `TELEGRAM_ALLOWED_CHAT_ID`); WhatsApp HMAC signature (Phase 2); optional Telegram webhook secret  
 
@@ -74,7 +74,8 @@ sequenceDiagram
 - End-to-end: chat message → agent → Gmail → reply in chat  
 - Read operations under **5 seconds** (p95, typical inbox)  
 - Send only after explicit confirmation in chat  
-- **Telegram:** user messages bot → receives `pong` (Phase 2T), then Gmail answers (Phase 3+)  
+- **Telegram:** user messages bot → Gmail answers via Gemini agent (Phase 2T + 3 — done)
+- **Production:** Deployed on **Render** with Telegram webhook (`personal-mcp-ai-agent.onrender.com`)
 - **WhatsApp:** Meta webhook verified; same Gmail flows when Phase 2 is complete  
 
 ## 10. Constraints and risks

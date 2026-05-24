@@ -47,13 +47,37 @@ export function isGeminiModelNotFoundError(err) {
 /**
  * @param {unknown} err
  */
-export function shouldTryNextGeminiModel(err) {
+export function isGeminiDailyQuotaExceeded(err) {
+  const msg = err?.message ?? String(err);
   return (
-    isGeminiQuotaZeroError(err) ||
-    isGeminiRateLimitError(err) ||
-    isGeminiOverloadError(err) ||
-    isGeminiModelNotFoundError(err)
+    /GenerateRequestsPerDay|PerDayPerProjectPerModel|PerDay/i.test(msg) ||
+    (/FreeTier/i.test(msg) && /quotaValue.*20/i.test(msg))
   );
+}
+
+/**
+ * Per-minute / burst 429 — safe to retry after a short wait.
+ * @param {unknown} err
+ */
+export function isGeminiTransientRateLimit(err) {
+  return (
+    isGeminiRateLimitError(err) &&
+    !isGeminiDailyQuotaExceeded(err) &&
+    !isGeminiQuotaZeroError(err)
+  );
+}
+
+/**
+ * @param {unknown} err
+ */
+export function shouldTryNextGeminiModel(err) {
+  if (isGeminiModelNotFoundError(err) || isGeminiOverloadError(err)) {
+    return true;
+  }
+  if (isGeminiQuotaZeroError(err) || isGeminiDailyQuotaExceeded(err)) {
+    return true;
+  }
+  return isGeminiTransientRateLimit(err);
 }
 
 /**
@@ -101,6 +125,19 @@ export function formatGeminiErrorForUser(err, model) {
     ].join("\n");
   }
   if (isGeminiRateLimitError(err)) {
+    if (isGeminiDailyQuotaExceeded(err)) {
+      return [
+        "Gemini free tier daily limit reached (~20 requests per model per day).",
+        "",
+        "Wait until tomorrow (resets UTC), or enable billing:",
+        "https://aistudio.google.com/",
+        "",
+        "Use AGENT_FAST_REPLY=1 on Render to use fewer API calls per message.",
+        model ? `(model: ${model})` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
     if (isGeminiQuotaZeroError(err)) {
       return [
         "Gemini free quota is not available for this model on your API key.",
@@ -115,7 +152,7 @@ export function formatGeminiErrorForUser(err, model) {
         .filter(Boolean)
         .join("\n");
     }
-    return "Gemini rate limit hit. Wait ~30 seconds and try again.";
+    return "Gemini rate limit (per minute). Wait ~30 seconds and try again.";
   }
   const msg = err?.message ?? String(err);
   if (/API key/i.test(msg)) {

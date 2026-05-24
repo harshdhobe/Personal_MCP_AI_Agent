@@ -11,7 +11,7 @@ This document describes the technical architecture for the MVP: components, data
 | **Scope** | Single user (personal assistant) |
 | **Primary interfaces** | WhatsApp (Meta Cloud API) and/or Telegram (Bot API) |
 | **Backend runtime** | Node.js + Express |
-| **Intelligence** | Google Gemini (function-calling agent, default `gemini-2.0-flash`) |
+| **Intelligence** | Google Gemini (function-calling agent, default `gemini-2.5-flash-lite`) |
 | **Email integration** | Gmail API via MCP server |
 | **Auth model** | Gmail OAuth 2.0; WhatsApp webhook HMAC; Telegram bot token + optional webhook secret |
 
@@ -55,8 +55,8 @@ flowchart LR
     WA[WhatsApp Cloud API]
     TG[Telegram Bot API]
     App[Assistant Backend]
-    LLM[OpenAI API]
-    MCP[Gmail MCP Server]
+    LLM[Gemini API]
+    MCP[Gmail MCP / In-process]
     Gmail[Gmail API]
 
     User <-->|Messages| WA
@@ -127,7 +127,7 @@ flowchart TB
 |-------|----------------|
 | **Ingress** | HTTP server, webhook GET (verification), POST (messages), signature validation |
 | **Application core** | Intent handling, conversation state, agent loop, human-in-the-loop for sends |
-| **Integrations** | OpenAI for reasoning; MCP for Gmail operations |
+| **Integrations** | Gemini for reasoning; MCP or in-process for Gmail operations |
 | **Egress** | Outbound WhatsApp messages (text; optional typing/read indicators if supported) |
 
 ---
@@ -166,11 +166,13 @@ Central loop:
 
 1. Build system prompt (role, Gmail capabilities, safety rules, confirmation policy).
 2. Attach user message + trimmed history.
-3. Call OpenAI with **tool definitions** mirroring Gmail MCP tools.
-4. On tool call: execute via MCP client; append tool result; continue until final natural-language answer or confirmation gate.
+3. Call Gemini with **tool definitions** mirroring Gmail MCP tools.
+4. On tool call: execute via MCP client or **in-process** (`gmailInProcess.js`); append tool result; continue until final natural-language answer or confirmation gate.
 5. Return structured outcome: `{ type: 'reply' | 'confirm', text, pendingAction? }`.
 
-**Model:** `gpt-4o-mini` — cost-efficient, sufficient for routing and summarization.
+**Model:** `gemini-2.5-flash-lite` (primary), fallback `gemini-2.5-flash` — cost-efficient with function calling.
+
+**Performance:** With `AGENT_FAST_REPLY=1`, read/draft tools skip the second Gemini call and format locally.
 
 **Tool-calling policy:**
 
@@ -186,7 +188,7 @@ Central loop:
 
 ### 5.7 MCP Client (`integrations/mcpClient.js`)
 
-- Uses **MCP SDK** to connect to a **Gmail MCP server** (stdio subprocess or SSE/HTTP transport depending on deployment).
+- Uses **MCP SDK** or **in-process Gmail** (`GMAIL_INPROCESS=1`) when stdio subprocess is slow (WSL `/mnt/d/`).
 - Exposes typed wrappers: `listUnread`, `searchMessages`, `getMessage`, `createDraft`, `sendMessage`, etc., as defined by the server’s tool schema.
 - Handles connection lifecycle, timeouts, and error mapping to user-safe messages.
 
@@ -219,7 +221,7 @@ sequenceDiagram
     participant WA as WhatsApp
     participant WH as Webhook
     participant AG as Agent
-    participant OAI as OpenAI
+    participant OAI as Gemini
     participant MCP as Gmail MCP
     participant GM as Gmail API
 
@@ -371,8 +373,8 @@ flowchart TB
     MCPp --> Google
 ```
 
-- **Public URL** required for webhooks (e.g. ngrok for dev, Railway/Fly.io/Render/VPS for prod).
-- MCP server as **child process** (stdio) or sidecar container on same host.
+- **Public URL** required for webhooks (e.g. ngrok for dev, **Render** for prod — see [RENDER_DEPLOY.md](./RENDER_DEPLOY.md)).
+- MCP server as **child process** (stdio) or **in-process Gmail** on same host.
 - Health endpoint: `GET /health` → `{ status: "ok" }`.
 
 ### 10.2 Environment Variables
@@ -390,7 +392,11 @@ flowchart TB
 | `WHATSAPP_APP_SECRET` | Signature validation |
 | `WHATSAPP_ALLOWED_WA_ID` | Single-user allowlist |
 | `GEMINI_API_KEY` | Google AI Studio API key |
-| `GEMINI_MODEL` | e.g. `gemini-2.0-flash` |
+| `GEMINI_MODEL` | e.g. `gemini-2.5-flash-lite` |
+| `GEMINI_FALLBACK_MODELS` | e.g. `gemini-2.5-flash` |
+| `GMAIL_INPROCESS` | `1` on WSL/Render (skip MCP subprocess) |
+| `AGENT_FAST_REPLY` | `1` to skip 2nd Gemini call for read/draft tools |
+| `GMAIL_MAX_RESULTS` | Default `3` for faster Gmail fetches |
 | `GMAIL_OAUTH_CLIENT_ID` | Google OAuth client |
 | `GMAIL_OAUTH_CLIENT_SECRET` | Google OAuth secret |
 | `GMAIL_OAUTH_REDIRECT_URI` | OAuth callback URL |
@@ -435,6 +441,8 @@ whatsapp_ai_assistant/
 │   ├── integrations/
 │   │   ├── mcpClient.js
 │   │   ├── geminiClient.js
+│   │   ├── geminiErrors.js
+│   │   ├── gmailInProcess.js
 │   │   └── mcpPool.js
 │   └── config/
 │       └── env.js
@@ -458,11 +466,25 @@ whatsapp_ai_assistant/
 
 **Idempotency:** Meta may retry webhooks; use `message.id` deduplication cache (short TTL) to avoid duplicate agent runs.
 
-**Graceful degradation:** If OpenAI is down, reply with maintenance message; do not call Gmail.
+**Graceful degradation:** If Gemini is down or rate-limited, reply with user-safe message; use local Gmail formatter fallback when possible.
 
 ---
 
-## 13. Constraints and Risks
+## 13. Production deployment (Render)
+
+| Item | Value |
+|------|--------|
+| Host | Render free-tier Web Service |
+| URL | `https://personal-mcp-ai-agent.onrender.com` |
+| Webhook | `POST /telegram/webhook` |
+| Health | `GET /health` |
+| Setup script | `npm run telegram:set-webhook -- https://<host>` |
+
+See [RENDER_DEPLOY.md](./RENDER_DEPLOY.md) and [full-flow-explanation.md](./full-flow-explanation.md).
+
+---
+
+## 14. Constraints and Risks
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
@@ -475,7 +497,7 @@ whatsapp_ai_assistant/
 
 ---
 
-## 14. Future Architecture (Post-MVP)
+## 15. Future Architecture (Post-MVP)
 
 - **Redis** for session store and webhook deduplication.
 - **Job queue** (BullMQ) for long summarize operations.
@@ -485,14 +507,16 @@ whatsapp_ai_assistant/
 
 ---
 
-## 15. References
+## 16. References
 
 - [WhatsApp Cloud API — Webhooks](https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks)
+- [Telegram Bot API — setWebhook](https://core.telegram.org/bots/api#setwebhook)
 - [Gmail API](https://developers.google.com/gmail/api)
+- [Google Gemini API](https://ai.google.dev/gemini-api/docs)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
-- [OpenAI Function Calling](https://platform.openai.com/docs/guides/function-calling)
+- [full-flow-explanation.md](./full-flow-explanation.md) — interview / end-to-end guide
 - Project plan: [`problem_statement_doc_809303f3.plan.md`](./problem_statement_doc_809303f3.plan.md)
 
 ---
 
-*Document version: 1.0 — MVP architecture aligned with problem statement plan.*
+*Document version: 1.1 — Updated for Gemini, Telegram production on Render, in-process Gmail.*

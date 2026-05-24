@@ -1,170 +1,215 @@
-# WhatsApp / Telegram AI Gmail Assistant
+# Personal MCP AI Agent
 
-A personal assistant that lets you read, search, summarize, and reply to Gmail via natural-language messages on **WhatsApp** or **Telegram**.
+**A personal Gmail assistant powered by Google Gemini and MCP-style tools, reachable on Telegram.**
 
-## Status
+Ask in plain language — *“What are my unread emails?”*, *“Search emails from Alice”*, *“Draft a reply to Bob”* — and get answers in chat. Email **sends** require explicit **YES/NO** confirmation.
 
-- **Phase 0** — Scaffolding, env validation, health check, webhook route shell
-- **Phase 1** — Gmail OAuth, bundled `mcp-gmail` MCP server, `mcpClient.js`
-- **Phase 2T** — **Telegram** webhook + long polling (implemented)
-- **Phase 3** — **Gemini** agent + Gmail MCP over Telegram (implemented)
-- **Phase 2** — WhatsApp webhook + outbound (stub; Meta setup still required)
 
-## Prerequisites
+|            |                                                                                         |
+| ---------- | --------------------------------------------------------------------------------------- |
+| **GitHub** | [harshdhobe/Personal_MCP_AI_Agent](https://github.com/harshdhobe/Personal_MCP_AI_Agent) |
+|            |                                                                                         |
+| **Stack**  | Node.js · Express · Gemini · Gmail API · Telegram · MCP                                 |
 
-- Node.js 20+
-- **Gmail:** [Google Cloud](https://console.cloud.google.com/) (Gmail API + OAuth)
-- **Gemini:** [Google AI Studio API key](https://aistudio.google.com/apikey) (free tier)
-- **Messaging (pick one or both):**
-  - **Telegram (recommended for local dev):** [@BotFather](https://t.me/BotFather)
-  - **WhatsApp:** [Meta Developer](https://developers.facebook.com/) (WhatsApp Cloud API)
+
+> Local folder name is still `whatsapp_ai_assistant/`; the repo and product name is **Personal MCP AI Agent**.
+
+---
 
 ## Quick start
 
+### 1. Clone and install
+
 ```bash
-cd whatsapp_ai_assistant
+git clone git@github.com:harshdhobe/Personal_MCP_AI_Agent.git
+cd Personal_MCP_AI_Agent   # or whatsapp_ai_assistant if cloned locally
 npm install
 cp .env.example .env
-# Edit .env — see Telegram or WhatsApp section below
-npm start
 ```
 
-Health check:
+### 2. Gmail (Google Cloud)
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → enable **Gmail API**.
+2. OAuth consent screen (Testing) → add your Gmail as test user.
+3. Create **OAuth Web client** → redirect URI: `http://127.0.0.1:8844/oauth/callback`.
+4. Put client ID/secret in `.env`, then run:
 
 ```bash
-curl http://localhost:3000/health
-# {"status":"ok","channels":["telegram"]}
+npm run gmail-oauth
 ```
 
-## Telegram setup (easiest path)
+Copy the printed `GMAIL_REFRESH_TOKEN` into `.env`.
 
-1. Open [@BotFather](https://t.me/BotFather) → `/newbot` → copy the **bot token**.
-2. In `.env`:
-
-```env
-MESSAGING_CHANNELS=telegram
-TELEGRAM_BOT_TOKEN=123456:ABC...
-```
-
-3. Message your bot once in Telegram, then:
+Verify Gmail tools:
 
 ```bash
-npm run telegram:chat-id
+npm run mcp:smoke
 ```
 
-4. Set `TELEGRAM_ALLOWED_CHAT_ID` in `.env` to the printed numeric id.
+### 3. Gemini (Google AI Studio)
 
-5. **Local dev (no ngrok):** long polling:
-
-```bash
-npm run telegram:poll
-```
-
-Send e.g. **"What are my unread emails?"** → Gemini will call Gmail tools and reply.
-
-6. **Webhook mode (production):** run `npm start`, expose HTTPS (e.g. ngrok), then:
-
-```bash
-curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<your-host>/telegram/webhook"
-```
-
-Optional: add `&secret_token=<TELEGRAM_WEBHOOK_SECRET>` and set the same value in `.env`.
-
-## Deploy on Render (free)
-
-See **[Docs/RENDER_DEPLOY.md](./Docs/RENDER_DEPLOY.md)** for step-by-step hosting with Telegram webhook.
-
-Quick flow: Render Web Service → paste env vars → `npm run telegram:set-webhook -- https://your-app.onrender.com` → stop local poll.
-
-## WhatsApp setup
-
-Set `MESSAGING_CHANNELS=whatsapp` (default) and fill all `WHATSAPP_*` variables. See [Docs/implementationPlan.md](./Docs/implementationPlan.md) Phase 2 for Meta webhook steps. WhatsApp routes remain at `/webhook` (Phase 2 stub until implemented).
-
-## Both channels
-
-```env
-MESSAGING_CHANNELS=whatsapp,telegram
-```
-
-Provide credentials for each enabled channel.
-
-## Gemini API key (Phase 3)
-
-1. Open [Google AI Studio](https://aistudio.google.com/apikey) → **Create API key**.
+1. [Create API key](https://aistudio.google.com/apikey).
 2. Add to `.env`:
 
 ```env
 GEMINI_API_KEY=your_key_here
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_FALLBACK_MODELS=gemini-2.5-flash
+AGENT_FAST_REPLY=1
+GMAIL_INPROCESS=1
 ```
 
-3. Test without Telegram:
+Test agent without Telegram:
 
 ```bash
 npm run agent:smoke -- "List my unread emails"
 ```
 
-## Phase 1 — Gmail OAuth and MCP
+### 4. Telegram ([@BotFather](https://t.me/BotFather))
 
-1. Enable **Gmail API** and create OAuth **Web application** credentials in Google Cloud.
-2. Redirect URI: `http://127.0.0.1:8844/oauth/callback` (see `.env.example`).
-3. `npm run gmail-oauth` → paste `GMAIL_REFRESH_TOKEN` into `.env`.
-4. `npm run mcp:smoke` — should return real email JSON.
+1. `/newbot` → copy **bot token**.
+2. In `.env`:
+
+```env
+MESSAGING_CHANNELS=telegram
+TELEGRAM_BOT_TOKEN=your_token
+```
+
+1. Message your bot once, then:
+
+```bash
+npm run telegram:chat-id
+```
+
+1. Set `TELEGRAM_ALLOWED_CHAT_ID` in `.env` to the printed numeric id.
+
+### 5. Run locally
+
+**Option A — Long polling (easiest on WSL, no ngrok):**
+
+```bash
+npm run telegram:poll
+```
+
+Message your bot: *“What are my unread emails?”*
+
+**Option B — Webhook (same as production):**
+
+```bash
+npm start
+curl http://localhost:3000/health
+# {"status":"ok","channels":["telegram"]}
+```
+
+---
+
+## Deploy to Render (production)
+
+1. Connect repo on [Render](https://render.com) → **Web Service** → free tier.
+2. Build: `npm install` · Start: `npm start` · Health: `/health`.
+3. Paste **all** `.env` values into Render **Environment** (Render does not use your local `.env`).
+4. After deploy:
+
+```bash
+npm run telegram:set-webhook -- https://personal-mcp-ai-agent.onrender.com
+```
+
+1. Stop local `telegram:poll` if running (use webhook **or** poll, not both).
+
+Full guide: **[Docs/RENDER_DEPLOY.md](./Docs/RENDER_DEPLOY.md)**
+
+---
+
+## Status
+
+
+| Phase                       | Status       |
+| --------------------------- | ------------ |
+| Gmail OAuth + MCP tools     | ✅ Done       |
+| Telegram (poll + webhook)   | ✅ Done       |
+| Gemini agent + tool calling | ✅ Done       |
+| Send confirmation (YES/NO)  | 🟡 Code done |
+| Render deployment           | ✅ Live       |
+| WhatsApp                    | ⏸ Stub only  |
+
+
+---
 
 ## Environment variables
 
-See [`.env.example`](./.env.example).
+See `[.env.example](./.env.example)`. Minimum for Telegram MVP:
 
-| Always required | Gmail + `GEMINI_API_KEY` |
-|-----------------|--------------------------|
-| If `MESSAGING_CHANNELS` includes `whatsapp` | All `WHATSAPP_*` vars |
-| If includes `telegram` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_ID` |
 
-Default `MESSAGING_CHANNELS=whatsapp` preserves previous behavior.
+| Variable                                         | Required                         |
+| ------------------------------------------------ | -------------------------------- |
+| `MESSAGING_CHANNELS=telegram`                    | Yes                              |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_ID` | Yes                              |
+| `GEMINI_API_KEY`, `GEMINI_MODEL`                 | Yes                              |
+| `GMAIL_OAUTH_`*, `GMAIL_REFRESH_TOKEN`           | Yes                              |
+| `GMAIL_INPROCESS=1`                              | Recommended (WSL + Render)       |
+| `AGENT_FAST_REPLY=1`                             | Recommended (fewer Gemini calls) |
+
+
+---
+
+## Scripts
+
+
+| Command                                        | Purpose                       |
+| ---------------------------------------------- | ----------------------------- |
+| `npm start`                                    | Express server (webhook mode) |
+| `npm run dev`                                  | Nodemon dev server            |
+| `npm run telegram:poll`                        | Local Telegram long polling   |
+| `npm run telegram:set-webhook -- https://host` | Register production webhook   |
+| `npm run telegram:chat-id`                     | Get your Telegram chat id     |
+| `npm run gmail-oauth`                          | One-time Gmail OAuth          |
+| `npm run mcp:smoke`                            | Test Gmail tools              |
+| `npm run agent:smoke -- "query"`               | Test Gemini + Gmail           |
+
+
+---
 
 ## Project structure
 
 ```
-whatsapp_ai_assistant/
+Personal_MCP_AI_Agent/
 ├── Docs/
-├── mcp-gmail/
+│   ├── architecture.md
+│   ├── RENDER_DEPLOY.md
+│   └── ...
+├── mcp-gmail/                     ← Gmail MCP tool implementations
 ├── src/
 │   ├── index.js
-│   ├── config/env.js
-│   ├── routes/
-│   │   ├── webhook.js      # WhatsApp (Meta)
-│   │   └── telegram.js     # Telegram
-│   ├── middleware/
-│   │   └── verifyTelegramWebhook.js
-│   ├── services/
-│   │   ├── telegram.js
-│   │   ├── telegramUpdateHandler.js
-│   │   └── messageDedupe.js
-│   └── integrations/mcpClient.js
+│   ├── routes/telegram.js
+│   ├── services/agent.js          ← Gemini agent loop
+│   └── integrations/              ← Gemini, Gmail, MCP pool
 ├── scripts/
-│   ├── gmail-oauth-setup.js
-│   ├── mcp-smoke-test.js
-│   ├── telegram-get-chat-id.js
-│   └── telegram-poll.js
-└── package.json
+└── render.yaml
 ```
+
+---
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Docs/architecture.md](./Docs/architecture.md) | System design (WhatsApp + Telegram) |
-| [Docs/implementationPlan.md](./Docs/implementationPlan.md) | Phased build guide |
-| [Docs/edgeCases.md](./Docs/edgeCases.md) | Edge cases and QA |
-| [Docs/problem_statement.md](./Docs/problem_statement.md) | Product problem statement |
 
-## Implementation phases
+| Document                                                             | Description                                       |
+| -------------------------------------------------------------------- | ------------------------------------------------- |
+| **[Docs/full-flow-explanation.md](./Docs/full-flow-explanation.md)** | End-to-end build story, challenges, interview Q&A |
+| [Docs/architecture.md](./Docs/architecture.md)                       | System design                                     |
+| [Docs/implementationPlan.md](./Docs/implementationPlan.md)           | Phased build guide                                |
+| [Docs/RENDER_DEPLOY.md](./Docs/RENDER_DEPLOY.md)                     | Render deployment                                 |
+| [Docs/GITHUB_SETUP.md](./Docs/GITHUB_SETUP.md)                       | Git + SSH setup                                   |
+| [Docs/edgeCases.md](./Docs/edgeCases.md)                             | Edge cases and QA                                 |
+| [Docs/problem_statement.md](./Docs/problem_statement.md)             | Product scope                                     |
 
-1. **Phase 0** — Scaffolding  
-2. **Phase 1** — Gmail OAuth + MCP  
-3. **Phase 2T** — Telegram messaging (done)  
-4. **Phase 2** — WhatsApp messaging  
-5. **Phase 4+** — Confirmation polish, deploy  
+
+---
+
+## WhatsApp (optional, not implemented)
+
+WhatsApp routes exist as a stub. To use later, set `MESSAGING_CHANNELS=whatsapp` and Meta Cloud API vars — see [Docs/implementationPlan.md](./Docs/implementationPlan.md) Phase 2.
+
+---
 
 ## License
 

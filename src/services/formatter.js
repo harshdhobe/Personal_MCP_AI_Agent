@@ -72,6 +72,35 @@ export function formatGmailToolResultForChat(toolName, payload) {
 }
 
 /**
+ * @param {{ to?: string; subject?: string; body?: string }} args
+ * @param {unknown} payload
+ */
+export function formatDraftCreatedForChat(args, payload) {
+  const to = String(args.to ?? "");
+  const subject = String(args.subject ?? "");
+  const body = String(args.body ?? "");
+  const bodyPreview = body.length > 500 ? `${body.slice(0, 500)}…` : body;
+  const draftId =
+    payload && typeof payload === "object" && "draftId" in payload
+      ? String(/** @type {{ draftId?: string }} */ (payload).draftId ?? "")
+      : "";
+
+  return [
+    "Draft saved in Gmail (not sent):",
+    "",
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "",
+    bodyPreview,
+    draftId ? `\n(draft id: ${draftId})` : "",
+    "",
+    "To send, ask me to send it — I'll ask YES/NO before sending.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
  * Format pending send confirmation for chat.
  * @param {{ to: string; subject: string; body: string; thread_id?: string }} draft
  */

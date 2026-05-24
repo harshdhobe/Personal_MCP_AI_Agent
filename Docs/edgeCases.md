@@ -284,7 +284,27 @@ Map edge cases to [implementationPlan.md §11.2](./implementationPlan.md#112-man
 
 ---
 
-## 15. Edge Case Handling Flow
+---
+
+## 17. Gemini, WSL, and Render Edge Cases
+
+| ID | Scenario | Expected behavior | Severity | Test hint |
+|----|----------|-------------------|----------|-----------|
+| GM-AI-01 | Gemini 429 per-minute | Retry up to 2× with backoff; user message if exhausted | Medium | Rapid messages |
+| GM-AI-02 | Gemini daily free quota (~20/model/day) | Fail fast; no retry storm; clear “wait until tomorrow” message | High | Heavy testing |
+| GM-AI-03 | Gemini 503 high demand | Retry with backoff; try fallback model | Medium | Peak hours |
+| GM-AI-04 | Fallback model 404 (e.g. `gemini-1.5-flash`) | Skip retired model; use `gemini-2.5-flash` only | High | Bad env var |
+| GM-AI-05 | Empty Gemini text after tool call | Formatter fallback or synthesis pass | High | Search then empty reply |
+| GM-AI-06 | `AGENT_FAST_REPLY=1` | One Gemini call for read/draft; local format | Low | Check logs `fast_reply=` |
+| WSL-01 | MCP timeout on `/mnt/d/` | Use `GMAIL_INPROCESS=1` | High | WSL Windows drive |
+| WSL-02 | Telegram poll `ETIMEDOUT` | IPv4-first DNS; use webhook in prod | Medium | Long poll on WSL |
+| RND-01 | Render free cold start | First message 30–60s delay | Medium | Idle 15+ min |
+| RND-02 | Render env missing `GEMINI_API_KEY` | App may start but agent fails | High | Omit secret |
+| RND-03 | Poll + webhook both active | Duplicate processing — use one mode | High | Local poll + Render webhook |
+
+---
+
+## 18. Edge Case Handling Flow (Telegram)
 
 ```mermaid
 flowchart TD
@@ -312,13 +332,15 @@ flowchart TD
 
 ---
 
-## 16. References
+## 19. References
 
 - [architecture.md](./architecture.md) — §8.3 Failure modes, §12 Performance, §13 Risks
 - [implementationPlan.md](./implementationPlan.md) — Phase 4 confirmation, Phase 7 testing
+- [full-flow-explanation.md](./full-flow-explanation.md) — challenges and interview guide
+- [RENDER_DEPLOY.md](./RENDER_DEPLOY.md) — production deployment
 - [WhatsApp Cloud API — Webhooks](https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks)
 - [Gmail API — Error handling](https://developers.google.com/gmail/api/guides/handle-errors)
 
 ---
 
-*Document version: 1.0 — MVP edge cases aligned with architecture and implementation plan.*
+*Document version: 1.1 — Added Gemini quota, WSL, and Render edge cases.*
