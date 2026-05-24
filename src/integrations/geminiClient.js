@@ -6,13 +6,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GMAIL_FUNCTION_DECLARATIONS } from "../agent/tools.js";
 import { SYSTEM_PROMPT } from "../agent/systemPrompt.js";
 
-/** Models that usually still have free-tier quota (2026). */
-export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+/** Lighter model — fewer 429s on free tier; still supports tools. */
+export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
 
-export const DEFAULT_GEMINI_FALLBACK_MODELS = [
-  "gemini-2.5-flash-lite",
-  "gemini-1.5-flash",
-];
+export const DEFAULT_GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash"];
 
 /**
  * @param {string} apiKey

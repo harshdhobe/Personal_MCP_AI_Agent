@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: personal-mcp-ai-agent
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: MESSAGING_CHANNELS
+        value: telegram
+      - key: GMAIL_INPROCESS
+        value: "1"
+      - key: AGENT_FAST_REPLY
+        value: "1"
+      - key: GMAIL_MAX_RESULTS
+        value: "3"
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-lite
+      - key: GEMINI_FALLBACK_MODELS
+        value: gemini-2.5-flash
+      - key: SESSION_TTL_HOURS
+        value: "24"
+      - key: MCP_GMAIL_TIMEOUT_MS
+        value: "90000"
+      # Set these in the Render dashboard (Environment → Secret):
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_ALLOWED_CHAT_ID
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GMAIL_OAUTH_CLIENT_ID
+        sync: false
+      - key: GMAIL_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_OAUTH_REDIRECT_URI
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false

@@ -93,7 +93,7 @@ export function mapGmailError(err) {
 const METADATA_HEADERS = ["From", "To", "Subject", "Date"];
 
 async function fetchMessagesMetadata(gmail, refs, headerNames = METADATA_HEADERS) {
-  const concurrency = 4;
+  const concurrency = Number.parseInt(process.env.GMAIL_FETCH_CONCURRENCY ?? "8", 10) || 8;
   const out = [];
   for (let i = 0; i < refs.length; i += concurrency) {
     const chunk = refs.slice(i, i + concurrency);
@@ -130,7 +130,7 @@ async function fetchMessagesMetadata(gmail, refs, headerNames = METADATA_HEADERS
 export async function invokeGmailToolByName(gmail, name, args = {}) {
   switch (name) {
     case "list_unread": {
-      const max = args.max_results ?? 5;
+      const max = args.max_results ?? 3;
       const res = await gmail.users.messages.list({
         userId: "me",
         q: "in:inbox is:unread",
@@ -141,7 +141,7 @@ export async function invokeGmailToolByName(gmail, name, args = {}) {
       return toolJson({ messages: detailed });
     }
     case "search_emails": {
-      const max = args.max_results ?? 5;
+      const max = args.max_results ?? 3;
       const res = await gmail.users.messages.list({
         userId: "me",
         q: String(args.query ?? ""),

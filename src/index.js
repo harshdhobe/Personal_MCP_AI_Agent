@@ -1,5 +1,6 @@
 import express from "express";
 import { fileURLToPath } from "node:url";
+import "./utils/network.js";
 import { config } from "./config/env.js";
 import { webhookRouter } from "./routes/webhook.js";
 import { telegramRouter } from "./routes/telegram.js";
@@ -83,9 +84,9 @@ export function createApp() {
 export function startServer() {
   const app = createApp();
   const channels = activeChannelNames();
-  const server = app.listen(config.port, () => {
-    console.log(`Server listening on http://localhost:${config.port}`);
-    console.log(`Health check: http://localhost:${config.port}/health`);
+  const server = app.listen(config.port, "0.0.0.0", () => {
+    console.log(`Server listening on port ${config.port}`);
+    console.log(`Health check: /health`);
     console.log(`Messaging channels: ${channels.join(", ") || "none"}`);
     if (config.channels.whatsapp?.enabled) {
       console.log(`WhatsApp webhook: http://localhost:${config.port}/webhook (Phase 2 — stub)`);

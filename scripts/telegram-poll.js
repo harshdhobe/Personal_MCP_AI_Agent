@@ -6,9 +6,11 @@
  */
 
 import dotenv from "dotenv";
+import "../src/utils/network.js";
 import { loadConfig } from "../src/config/env.js";
 import { handleTelegramUpdate } from "../src/services/telegramUpdateHandler.js";
 import { telegramGetUpdates } from "../src/services/telegram.js";
+import { warmupGmailMcp } from "../src/integrations/mcpPool.js";
 
 dotenv.config();
 
@@ -36,12 +38,21 @@ process.on("SIGINT", () => {
 
 console.log("Telegram long polling started. Message your bot to use the Gmail assistant.");
 console.log(`Allowlisted chat_id: ${config.channels.telegram.allowedChatId}`);
+if (config.performance?.agentFastReply) {
+  console.log("Fast reply: ON (skips 2nd Gemini call for list/search/summarize)");
+}
 console.log("Press Ctrl+C to stop.\n");
+
+try {
+  await warmupGmailMcp();
+} catch (err) {
+  console.warn("[telegram] Gmail warmup failed:", err?.message ?? err);
+}
 
 while (running) {
   try {
     const url = new URL(`https://api.telegram.org/bot${token}/getUpdates`);
-    url.searchParams.set("timeout", "30");
+    url.searchParams.set("timeout", "25");
     url.searchParams.set("offset", String(offset));
     url.searchParams.set("allowed_updates", JSON.stringify(["message", "edited_message"]));
 

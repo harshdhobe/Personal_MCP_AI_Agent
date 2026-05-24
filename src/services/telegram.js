@@ -2,7 +2,10 @@
  * Telegram Bot API client (send messages).
  */
 
+import "../utils/network.js";
+
 const TELEGRAM_TEXT_LIMIT = 4096;
+const GET_UPDATES_TIMEOUT_SEC = 25;
 const DEFAULT_FETCH_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 4;
 
@@ -35,12 +38,15 @@ function formatFetchError(err) {
  * @param {RequestInit} init
  */
 async function fetchWithRetry(url, init = {}) {
+  const timeoutMs = init.signal ? undefined : DEFAULT_FETCH_TIMEOUT_MS;
   let lastErr;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
     try {
       const res = await fetch(url, {
         ...init,
-        signal: AbortSignal.timeout(DEFAULT_FETCH_TIMEOUT_MS),
+        signal:
+          init.signal ??
+          (timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined),
       });
       return res;
     } catch (err) {
@@ -87,7 +93,11 @@ async function telegramApi(botToken, method, body) {
  * @param {URL} url full URL including bot token and query params
  */
 export async function telegramGetUpdates(url) {
-  const res = await fetchWithRetry(url.toString(), { method: "GET" });
+  const pollTimeoutMs = (GET_UPDATES_TIMEOUT_SEC + 35) * 1000;
+  const res = await fetchWithRetry(url.toString(), {
+    method: "GET",
+    signal: AbortSignal.timeout(pollTimeoutMs),
+  });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) {
     const desc = data.description ?? res.statusText;

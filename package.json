@@ -11,6 +11,8 @@
     "mcp:smoke": "node scripts/mcp-smoke-test.js",
     "telegram:chat-id": "node scripts/telegram-get-chat-id.js",
     "telegram:poll": "node scripts/telegram-poll.js",
+    "telegram:poll:ipv4": "NODE_OPTIONS=--dns-result-order=ipv4first node scripts/telegram-poll.js",
+    "telegram:set-webhook": "node scripts/telegram-set-webhook.js",
     "agent:smoke": "node scripts/agent-smoke-test.js"
   },
   "engines": {

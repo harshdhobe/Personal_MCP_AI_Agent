@@ -70,6 +70,12 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<your-host>/tel
 
 Optional: add `&secret_token=<TELEGRAM_WEBHOOK_SECRET>` and set the same value in `.env`.
 
+## Deploy on Render (free)
+
+See **[Docs/RENDER_DEPLOY.md](./Docs/RENDER_DEPLOY.md)** for step-by-step hosting with Telegram webhook.
+
+Quick flow: Render Web Service → paste env vars → `npm run telegram:set-webhook -- https://your-app.onrender.com` → stop local poll.
+
 ## WhatsApp setup
 
 Set `MESSAGING_CHANNELS=whatsapp` (default) and fill all `WHATSAPP_*` variables. See [Docs/implementationPlan.md](./Docs/implementationPlan.md) Phase 2 for Meta webhook steps. WhatsApp routes remain at `/webhook` (Phase 2 stub until implemented).

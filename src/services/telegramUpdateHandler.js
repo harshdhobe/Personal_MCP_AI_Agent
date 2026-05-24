@@ -7,6 +7,31 @@ import { sendTelegramText } from "./telegram.js";
 import { getSessionManager } from "./sessionManager.js";
 import { handleConfirmation } from "./confirmation.js";
 import { runAgent } from "./agent.js";
+import { formatGeminiErrorForUser } from "../integrations/geminiErrors.js";
+
+/**
+ * User-safe agent error text (Render has no .env file — point to dashboard).
+ * @param {unknown} err
+ */
+function formatAgentErrorForUser(err) {
+  const cause = err?.cause ?? err;
+  const msg = err?.message ?? String(err);
+
+  if (/API key/i.test(msg) || /API key/i.test(cause?.message ?? "")) {
+    return [
+      "Invalid or missing GEMINI_API_KEY on the server.",
+      "",
+      "Render → your service → Environment → add GEMINI_API_KEY (no quotes), then Manual Deploy.",
+      "Create key: https://aistudio.google.com/apikey",
+    ].join("\n");
+  }
+
+  if (/gemini|generative|429|503|502|quota|rate.?limit|resourceexhausted|high demand/i.test(msg)) {
+    return formatGeminiErrorForUser(cause, undefined);
+  }
+
+  return msg.slice(0, 500) || "Something went wrong. Please try again.";
+}
 
 /**
  * @param {{ botToken: string; chatId: string | number; text: string }} params
@@ -100,11 +125,10 @@ export async function handleTelegramUpdate(config, update) {
     return { handled: true, reason: "agent_reply", inbound: text };
   } catch (err) {
     console.error("[telegram] Agent error:", err?.message ?? err);
-    const safe =
-      err?.message?.includes("API key") || /gemini|generative/i.test(err?.message ?? "")
-        ? "AI service error. Check GEMINI_API_KEY in .env."
-        : err?.message?.slice(0, 400) ||
-          "Something went wrong. Please try again in a moment.";
+    if (err?.cause) {
+      console.error("[telegram] Agent cause:", err.cause?.message ?? err.cause);
+    }
+    const safe = formatAgentErrorForUser(err);
 
     await safeSendTelegram({
       botToken: telegram.botToken,

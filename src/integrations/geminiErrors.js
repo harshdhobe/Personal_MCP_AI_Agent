@@ -4,11 +4,56 @@
 
 /**
  * @param {unknown} err
+ * @returns {number | null}
+ */
+export function getGeminiHttpStatus(err) {
+  const direct = err?.status ?? err?.statusCode;
+  if (direct) return Number(direct);
+  const match = (err?.message ?? String(err)).match(/\[(\d{3})\s*\]/);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * @param {unknown} err
  */
 export function isGeminiRateLimitError(err) {
-  const status = err?.status ?? err?.statusCode;
+  const status = getGeminiHttpStatus(err);
   const msg = err?.message ?? String(err);
   return status === 429 || /429|quota|rate.?limit|resourceexhausted/i.test(msg);
+}
+
+/**
+ * @param {unknown} err
+ */
+export function isGeminiOverloadError(err) {
+  const status = getGeminiHttpStatus(err);
+  const msg = err?.message ?? String(err);
+  return (
+    status === 503 ||
+    status === 502 ||
+    /high demand|overloaded|temporarily unavailable/i.test(msg)
+  );
+}
+
+/**
+ * @param {unknown} err
+ */
+export function isGeminiModelNotFoundError(err) {
+  const status = getGeminiHttpStatus(err);
+  const msg = err?.message ?? String(err);
+  return status === 404 || /is not found for API/i.test(msg);
+}
+
+/**
+ * @param {unknown} err
+ */
+export function shouldTryNextGeminiModel(err) {
+  return (
+    isGeminiQuotaZeroError(err) ||
+    isGeminiRateLimitError(err) ||
+    isGeminiOverloadError(err) ||
+    isGeminiModelNotFoundError(err)
+  );
 }
 
 /**
@@ -45,6 +90,16 @@ export function getGeminiRetryDelayMs(err) {
  * @param {string} [model]
  */
 export function formatGeminiErrorForUser(err, model) {
+  if (isGeminiOverloadError(err)) {
+    return "Gemini is busy (high demand). Wait ~30 seconds and try again.";
+  }
+  if (isGeminiModelNotFoundError(err)) {
+    return [
+      `Gemini model not found${model ? `: ${model}` : ""}.`,
+      "Update Render env: GEMINI_FALLBACK_MODELS=gemini-2.5-flash",
+      "(Remove gemini-1.5-flash — retired from the API.)",
+    ].join("\n");
+  }
   if (isGeminiRateLimitError(err)) {
     if (isGeminiQuotaZeroError(err)) {
       return [

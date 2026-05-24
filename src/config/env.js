@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { parseEnvFlag, parseGmailMaxResults } from "../utils/gmailPerf.js";
 
 dotenv.config();
 
@@ -131,11 +132,16 @@ export function loadConfig() {
     },
     gemini: {
       apiKey: process.env.GEMINI_API_KEY.trim(),
-      model: (process.env.GEMINI_MODEL ?? "gemini-2.5-flash").trim(),
-      fallbackModels: (process.env.GEMINI_FALLBACK_MODELS ?? "gemini-2.5-flash-lite,gemini-1.5-flash")
+      model: (process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite").trim(),
+      fallbackModels: (process.env.GEMINI_FALLBACK_MODELS ?? "gemini-2.5-flash")
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
+    },
+    performance: {
+      gmailMaxResults: parseGmailMaxResults(process.env.GMAIL_MAX_RESULTS, 3),
+      agentFastReply: parseEnvFlag(process.env.AGENT_FAST_REPLY),
+      skipSynthesis: parseEnvFlag(process.env.AGENT_SKIP_SYNTHESIS),
     },
     gmail: {
       clientId: process.env.GMAIL_OAUTH_CLIENT_ID.trim(),
